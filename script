@@ -1,0 +1,129 @@
+import pandas as pd
+import geopandas as gpd
+import plotly.graph_objects as go
+import numpy as np
+
+# locating files
+data_path = '/path/of/data'
+shapefile_path = '/path/of/shapefile'
+
+# Load the shapefile and the dataframe
+shapefile = gpd.read_file(shapefile_path)
+df = pd.read_csv(data_path)
+
+# Merge the shapefile and the dataframe on the country names
+merged = shapefile.merge(df, how='right', left_on='ADMIN', right_on='Country')
+
+# Extract the latitude and longitude of the centroid of each country in the shapefile
+merged['centroid'] = merged.geometry.centroid
+merged['latitude'] = merged['centroid'].y
+merged['longitude'] = merged['centroid'].x
+
+# Find duplicates based on latitude and longitude
+merged['duplicate'] = merged.duplicated(subset=['latitude', 'longitude'], keep=False)
+
+# Initialize offset counters
+lat_offset = 3.0  # Base offset for latitude
+lon_offset = 3.0  # Base offset for longitude
+offset_increment = 1.0  # The value to increment with each duplicate
+
+# Create lists to hold the new offsets for each country
+lat_offsets = []
+lon_offsets = []
+
+# Track the number of duplicates for each (latitude, longitude) pair
+for idx, row in merged.iterrows():
+    if row['duplicate']:
+        # Count how many duplicates exist for this latitude and longitude
+        duplicate_count = merged[(merged['latitude'] == row['latitude']) & (merged['longitude'] == row['longitude'])].index.tolist().index(idx)
+        
+        # Apply incremental offsets
+        lat_offsets.append(lat_offset * duplicate_count)
+        lon_offsets.append(lon_offset * duplicate_count)
+    else:
+        lat_offsets.append(0)  # No offset for non-duplicates
+        lon_offsets.append(0)
+
+# Apply the calculated offsets to the merged DataFrame
+merged['lat_offset'] = lat_offsets
+merged['lon_offset'] = lon_offsets
+
+# Apply an additional offset for the United States of America
+usa_index = merged[merged['Country'] == "United States of America"].index
+extra_offset = -6.0  # Adjust this value to control how much to lower the position
+
+for idx in usa_index:
+    merged.at[idx, 'lat_offset'] += extra_offset  # Apply the extra offset for the USA
+
+# Locate the index for "United Republic of Tanzania"
+tanzania_index = merged[merged['Country'] == "United Republic of Tanzania"].index
+tanzania_lat_offset = -1.0  # Adjust this value to control how much to move the position (change the value as needed)
+tanzania_lon_offset = -2.0  # Adjust longitude offset if necessary
+
+# Apply the additional offsets for Tanzania
+for idx in tanzania_index:
+    merged.at[idx, 'lat_offset'] += tanzania_lat_offset  # Apply the additional latitude offset
+    merged.at[idx, 'lon_offset'] += tanzania_lon_offset  # Apply the additional longitude offset
+
+# Color mapping based on the 'Color' column
+color_mapping = {
+    5: 'green',
+    1: 'purple',
+    2: 'yellow',
+    4: 'red',
+    7: 'orange',
+    8: 'blue',
+    6: 'cyan'
+}
+
+# Update the 'color' column based on the 'Color' column in df
+merged['color'] = merged['Color'].apply(lambda x: color_mapping.get(x, 'gray'))  # Default to gray if not in the mapping
+
+# Create a Plotly scatter plot on a world map
+fig = go.Figure(go.Scattergeo(
+    locationmode='country names',
+    lat=merged['latitude'] + merged['lat_offset'],  # Adding the incremented offset to latitudes
+    lon=merged['longitude'] + merged['lon_offset'],  # Adding the incremented offset to longitudes
+    text=merged.apply(lambda row: f"Country: {row['Country']}<br>Event: {row['Event']}", axis=1),
+    hoverinfo='text',
+    marker=dict(
+        size=10,
+        color=merged['color'],  # Use the 'color' column based on 'Color'
+        opacity=0.6,
+        line=dict(width=0.5, color='black')
+    )
+))
+
+# Customize layout to move and resize the title
+fig.update_layout(
+    geo=dict(
+        showland=True,
+        landcolor='lightgray',
+        showcoastlines=True,  # Show coastlines
+        coastlinecolor='black',  # Coastline color
+        showcountries=True,  # Ensure countries are shown
+        countrycolor='black',  # Set country border color
+        showlakes=False,
+        lakecolor='lightblue',
+        projection_type='natural earth',  # Try different projections if needed
+        scope='world',
+        projection_scale=1,  # Adjust this value for zooming in/out (default is around 1)
+        center=dict(lon=0, lat=0)
+    ),
+    title='Active CDC Emergency Response and Public Health Locations',
+    title_x=0.5,  # Center the title horizontally (0 = left, 1 = right, 0.5 = center)
+    title_y=0.88,  # Position the title vertically (1 = top, 0 = bottom)
+    title_font=dict(
+        size=36,  # Increase font size (default is usually around 16)
+        family='Arial',  # Set the font family (optional)
+        color='black'  # Title font color (optional)
+    ),
+    width=1400,  # Adjust width to make the map wider
+    height=1000  # Adjust height to make the map taller
+)
+
+# Show the map
+fig.show()
+
+# Save the map as an HTML file
+fig.write_html('/path/of/index.html')  # Replace with your desired path
