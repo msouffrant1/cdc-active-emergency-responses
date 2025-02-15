@@ -16,7 +16,7 @@ Type - Interactive plot
 
 Format - HTML
 
-Identifier - [Interactive plot - COVID-19 Mortality in the United States: A Breakdown by Sex and Age](https://msouffrant1.github.io/cdc-covid-deaths-plots/)
+Identifier - [Interactive plot - Active CDC Response Efforts and Sites of Public Health Events](https://msouffrant1.github.io/cdc-active-emergency-responses/)
 
 Source - [CDCReady - Active Responses and Events](https://cdcready.cdc.gov/) 
 
