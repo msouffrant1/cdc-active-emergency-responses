@@ -79,7 +79,16 @@ color_mapping = {
 # Update the 'color' column based on the 'Color' column in df
 merged['color'] = merged['Color'].apply(lambda x: color_mapping.get(x, 'gray'))  # Default to gray if not in the mapping
 
-# Create a Plotly scatter plot on a world map
+# Define size mapping based on the 'Level' column
+size_mapping = {
+    3: 10,  # Smaller circles for Level 3
+    4: 15  # Larger circles for Level 4
+}
+
+# Update the 'marker_size' column based on the 'Level' column in df
+merged['marker_size'] = merged['Level'].apply(lambda x: size_mapping.get(x, 10))  # Default size is 10 if not in the mapping
+
+# Create a Plotly scatter plot on a world map with dynamic sizes
 fig = go.Figure(go.Scattergeo(
     locationmode='country names',
     lat=merged['latitude'] + merged['lat_offset'],  # Adding the incremented offset to latitudes
@@ -87,7 +96,7 @@ fig = go.Figure(go.Scattergeo(
     text=merged.apply(lambda row: f"Country: {row['Country']}<br>Event: {row['Event']}", axis=1),
     hoverinfo='text',
     marker=dict(
-        size=10,
+        size=merged['marker_size'],  # Use the 'marker_size' column for dynamic circle size
         color=merged['color'],  # Use the 'color' column based on 'Color'
         opacity=0.6,
         line=dict(width=0.5, color='black')
@@ -125,5 +134,7 @@ fig.update_layout(
 # Show the map
 fig.show()
 
+
 # Save the map as an HTML file
 fig.write_html('/path/of/index.html')  # Replace with your desired path
+
